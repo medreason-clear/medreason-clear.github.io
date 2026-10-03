@@ -336,3 +336,15 @@ table.res tr.intact:not(:first-child) td:not(.model) { border-top: 1px solid #d6
 @media (max-width: 768px) {
   .description, .content.has-text-justified { text-align: left !important; }
 }
+
+/* NeurIPS logo beside the venue line */
+.venue-block { display: flex; align-items: center; justify-content: center; gap: 1.1rem; margin-top: 1rem; flex-wrap: wrap; }
+.venue-block .venue-line { margin-top: 0; text-align: left; max-width: 34rem; }
+.venue-logo img { height: 64px; width: auto; display: block; }
+.venue-logo { padding-right: 1.1rem; border-right: 1px solid #d9e2ec; }
+@media (max-width: 640px) {
+  .venue-block { flex-direction: column; gap: .5rem; }
+  .venue-block .venue-line { text-align: center; }
+  .venue-logo { border-right: 0; padding-right: 0; }
+  .venue-logo img { height: 52px; }
+}
