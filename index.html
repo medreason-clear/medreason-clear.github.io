@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CLEAR: Calibrating Medical Vision-Language Reasoning Under Image Corruption</title>
+  <meta name="description" content="CLEAR audits whether medical vision-language models become less confident when the image is blank, mismatched, or corrupted. Across Qwen2.5-VL, LLaVA-1.6, and MedGemma on VQA-RAD and PathVQA, accuracy falls but confidence does not, so calibration error nearly doubles. Med-Reasoner Workshop @ NeurIPS 2026.">
+  <link rel="canonical" href="https://medreason-clear.github.io/">
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="CLEAR">
+  <meta property="og:url" content="https://medreason-clear.github.io/">
+  <meta property="og:title" content="CLEAR: Calibrating Medical Vision-Language Reasoning Under Image Corruption">
+  <meta property="og:description" content="Remove or swap the image and medical VLMs lose accuracy but keep their confidence: ECE 0.23 → 0.43 on VQA-RAD, 48% of answers unchanged under a swapped image. Med-Reasoner @ NeurIPS 2026.">
+  <meta property="og:image" content="https://medreason-clear.github.io/static/images/og_image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="CLEAR: Calibrating Medical Vision-Language Reasoning Under Image Corruption">
+  <meta name="twitter:description" content="Do medical VLMs grow less confident when they can't see the image? No: accuracy falls, confidence doesn't. Med-Reasoner @ NeurIPS 2026.">
+  <meta name="twitter:image" content="https://medreason-clear.github.io/static/images/og_image.png">
+
+  <!-- Google Scholar / citation metadata -->
+  <meta name="citation_title" content="Calibrating Medical Vision-Language Reasoning Under Image Corruption">
+  <meta name="citation_author" content="Howlader, Koushik">
+  <meta name="citation_author_institution" content="Iowa State University">
+  <meta name="citation_author" content="Ghafoor, Zainab">
+  <meta name="citation_author_institution" content="Sonoma State University">
+  <meta name="citation_author" content="Bhattacharjee, Ushashi">
+  <meta name="citation_author_institution" content="Iowa State University">
+  <meta name="citation_author" content="Chakraborty, Sayantan">
+  <meta name="citation_author_institution" content="University of Dhaka">
+  <meta name="citation_author" content="Bhattacharjee, Tanusree">
+  <meta name="citation_author_institution" content="Iowa State University">
+  <meta name="citation_author" content="Roy, Tirtho">
+  <meta name="citation_author_institution" content="Iowa State University">
+  <meta name="citation_publication_date" content="2026">
+  <meta name="citation_conference_title" content="NeurIPS 2026 Workshop on Medical Reasoning with Vision Language Foundation Models (Med-Reasoner)">
+  <meta name="citation_abstract_html_url" content="https://medreason-clear.github.io/">
+  <meta name="citation_pdf_url" content="https://medreason-clear.github.io/static/paper/paper.pdf">
+
+  <link rel="icon" type="image/png" href="static/images/favicon.png">
+  <link rel="apple-touch-icon" href="static/images/apple-touch-icon.png">
+  <meta name="theme-color" content="#14306b">
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans:400,500,700|Noto+Sans:400,600,700|Castoro&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+  <link rel="stylesheet" href="static/css/clear.css?v=1">
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+</head>
+<body>
+
+<!-- Sticky section nav -->
+<nav class="clear-nav" aria-label="Sections">
+  <div class="inner">
+    <a class="brand" href="#top" aria-label="CLEAR home"><img src="static/images/clear_logo.png" alt="CLEAR"></a>
+    <div class="links">
+      <a href="#tldr">TL;DR</a>
+      <a href="#abstract">Abstract</a>
+      <a href="#setup">Setup</a>
+      <a href="#findings">Findings</a>
+      <a href="#figures">Figures</a>
+      <a href="#results">Results</a>
+      <a href="#discussion">Discussion</a>
+      <a href="#team">Team</a>
+      <a href="#BibTeX">BibTeX</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero clear-hero" id="top">
+  <div class="hero-body">
+    <div class="container is-max-desktop has-text-centered">
+
+      <div class="venue-row">
+        <span class="venue-badge"><span class="nips">NeurIPS 2026</span> Med-Reasoner Workshop</span>
+        <span class="tag-accepted-green">Accepted</span>
+      </div>
+
+      <img class="hero-logo" src="static/images/clear_logo.png" alt="CLEAR wordmark: radiology and pathology images inside the C, a reliability curve in the E, a target in the A, and a head with an eye in the R">
+
+      <h1 class="title is-1 publication-title">
+        <span class="grad-text">Calibrating</span> Medical Vision-Language Reasoning Under Image Corruption
+      </h1>
+
+      <div class="is-size-5 publication-authors">
+        <div class="author-list">
+          <span class="author-block"><a href="https://www.cs.iastate.edu/people/koushik-howlader" target="_blank" rel="noopener">Koushik Howlader</a><sup>1,&#9993;</sup>,</span>
+          <span class="author-block"><a href="https://www.linkedin.com/in/zainab-ghafoor-8aa984333/" target="_blank" rel="noopener">Zainab Ghafoor</a><sup>2</sup>,</span>
+          <span class="author-block"><a href="https://www.linkedin.com/in/ushashi-bhattacharjee/" target="_blank" rel="noopener">Ushashi Bhattacharjee</a><sup>1</sup>,</span>
+          <span class="author-block"><a href="https://sayantan1416.github.io/" target="_blank" rel="noopener">Sayantan Chakraborty</a><sup>3</sup>,</span>
+          <span class="author-block">Tanusree Bhattacharjee<sup>1</sup>,</span>
+          <span class="author-block"><a href="https://www.linkedin.com/in/tirtho-roy-apon/" target="_blank" rel="noopener">Tirtho Roy</a><sup>1,&#9993;</sup></span>
+        </div>
+      </div>
+
+      <div class="affils">
+        <span class="aff"><sup>1</sup>Iowa State University</span>
+        <span class="aff"><sup>2</sup>Sonoma State University</span>
+        <span class="aff"><sup>3</sup>University of Dhaka</span>
+      </div>
+      <p class="corr">&#9993; Corresponding authors:
+        <a href="mailto:howlader@iastate.edu">howlader@iastate.edu</a>,
+        <a href="mailto:tirtho@iastate.edu">tirtho@iastate.edu</a></p>
+
+      <p class="venue-line">
+        NeurIPS 2026 Workshop on Medical Reasoning with Vision Language Foundation Models (Med-Reasoner)
+        <span class="sub">Atlanta, GA &middot; December 12&ndash;13, 2026 &middot; non-archival</span>
+      </p>
+
+      <div class="publication-links">
+        <span class="link-block">
+          <a href="static/paper/paper.pdf" target="_blank" class="external-link button is-normal is-rounded is-dark">
+            <span class="icon"><i class="fas fa-file-pdf"></i></span><span>Paper</span>
+          </a>
+        </span>
+        <!-- TODO: replace "#" with the OpenReview forum URL once public -->
+        <span class="link-block">
+          <a href="#" class="external-link button is-normal is-rounded is-dark is-soon" aria-disabled="true">
+            <span class="icon"><i class="ai ai-openreview"></i></span><span>OpenReview (soon)</span>
+          </a>
+        </span>
+        <!-- TODO: replace "#" with the evaluation-harness repository once public -->
+        <span class="link-block">
+          <a href="#" class="external-link button is-normal is-rounded is-dark is-soon" aria-disabled="true">
+            <span class="icon"><i class="fab fa-github"></i></span><span>Code (soon)</span>
+          </a>
+        </span>
+        <span class="link-block">
+          <a href="#BibTeX" class="external-link button is-normal is-rounded is-dark">
+            <span class="icon"><i class="fas fa-quote-right"></i></span><span>BibTeX</span>
+          </a>
+        </span>
+      </div>
+
+      <div class="stat-strip">
+        <div class="stat"><div class="num">3</div><div class="lbl">locally run VLMs<br>(1 medical)</div></div>
+        <div class="stat"><div class="num">2</div><div class="lbl">medical VQA sets<br>VQA-RAD &middot; PathVQA</div></div>
+        <div class="stat"><div class="num">3</div><div class="lbl">image conditions<br>intact &middot; blank &middot; mismatched</div></div>
+        <div class="stat"><div class="num">5</div><div class="lbl">research<br>questions</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TL;DR / hypothesis -->
+<section class="section is-tint" id="tldr">
+  <div class="container">
+    <div class="hypo">
+      <div class="hd"><i class="fas fa-lightbulb"></i> Central Hypothesis</div>
+      <div class="bd">
+        A trustworthy medical VLM should grow <em>less</em> confident when the image it needs is blank,
+        mismatched, or corrupted. We hypothesize that current models do the opposite: confidence stays high
+        even when the visual evidence is gone, so <b>accuracy falls but confidence does not</b>, a calibration
+        failure that accuracy-only benchmarks cannot see.
+        <div class="tldr">
+          <b class="k">TL;DR</b>
+          The hypothesis holds. On VQA-RAD, removing the image nearly doubles calibration error
+          (ECE <b>0.23 &rarr; 0.43</b>), 48% of answers do not change when the image is swapped, and the
+          medically specialized model is the most overconfident of the three. Models notice a blank image more
+          easily than a believable but wrong one, which is the more dangerous case in the clinic.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Abstract -->
+<section class="section" id="abstract">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <span class="sec-kicker">Overview</span>
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            Vision-language models (VLMs) are now widely used to answer questions about medical images. A known
+            problem is that they often sound confident even when the image does not support their answer. Earlier
+            benchmarks test whether accuracy drops when the image is blank or wrong, but they miss something just as
+            important: does the model's confidence also fall when the visual evidence is gone? Put simply, is a VLM
+            properly unsure when it cannot really see the image? To find out, we test three locally run VLMs,
+            including a medically specialized one, on two medical VQA datasets, VQA-RAD and PathVQA, under three
+            image conditions: intact, blank, and mismatched. Alongside accuracy, we report calibration (expected
+            calibration error and reliability curves) and how often the answer stays the same when the image
+            changes. The results are worrying. On VQA-RAD, removing or replacing the image lowers accuracy while
+            mean confidence hardly moves and can even rise, so it nearly doubles the calibration error
+            (ECE 0.23&nbsp;&rarr;&nbsp;0.43). About half of all high-confidence answers become wrong, and 48% of
+            answers do not change at all when the image is swapped. The effect is even stronger on PathVQA, and,
+            strikingly, it is worst for the medically specialized model, which is the most overconfident of the
+            three. Most importantly, the models notice a blank image more easily than a believable but wrong one,
+            which is the more dangerous case in the clinic. We release our evaluation harness so others can run the
+            same calibration checks on medical VLMs.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Setup: three conditions -->
+<section class="section is-tint" id="setup">
+  <div class="container">
+    <div class="has-text-centered">
+      <span class="sec-kicker">Setup</span>
+      <h2 class="title is-3">One question, three images</h2>
+    </div>
+    <p class="q-pill">Every (image, question) pair is asked three times with greedy decoding.
+      Confidence is the model's own mean per-token probability of the generated answer.</p>
+
+    <div class="conds">
+      <div class="cond intact">
+        <div class="tile"><img src="static/images/cond_xray.png" alt="The real chest radiograph for the question"><span class="stamp"><i class="fas fa-check"></i></span></div>
+        <h3>Intact</h3>
+        <p>The real image that goes with the question.</p>
+        <div class="expect">Baseline accuracy and confidence</div>
+      </div>
+      <div class="cond blank">
+        <div class="tile blank" role="img" aria-label="A plain gray image"><span class="stamp"><i class="fas fa-minus"></i></span></div>
+        <h3>Blank</h3>
+        <p>A plain gray picture of the same size that carries no visual evidence.</p>
+        <div class="expect">A faithful model should become less confident</div>
+      </div>
+      <div class="cond mismatch">
+        <div class="tile"><img src="static/images/cond_mri.png" alt="A different image drawn from the same dataset"><span class="stamp"><i class="fas fa-exclamation"></i></span></div>
+        <h3>Mismatched</h3>
+        <p>A different picture drawn at random from the same dataset: believable, but clinically irrelevant.</p>
+        <div class="expect">A faithful model should become less confident</div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><b>Accuracy</b><span>Normalized match to the gold answer, lenient for yes/no.</span></div>
+      <div class="metric"><b>ECE</b><span>Expected calibration error, 10 equal-width bins, plus reliability diagrams.</span></div>
+      <div class="metric"><b>High-conf. error</b><span>Fraction of answers with confidence &gt; 0.8 that are wrong.</span></div>
+      <div class="metric"><b>Image-drop consistency</b><span>Fraction of answers identical to the intact-image answer.</span></div>
+    </div>
+    <p class="table-legend" style="margin-top:1.2rem">Models: Qwen2.5-VL-7B-Instruct and LLaVA-1.6-Mistral-7B (general), MedGemma-4b-it (medical).
+      Datasets: VQA-RAD test (<i>n</i>&nbsp;=&nbsp;451, radiology) and PathVQA test (<i>n</i>&nbsp;=&nbsp;6,719, pathology).</p>
+  </div>
+</section>
+
+<!-- Key findings -->
+<section class="section" id="findings">
+  <div class="container">
+    <div class="has-text-centered" style="margin-bottom:1.6rem">
+      <span class="sec-kicker">Results</span>
+      <h2 class="title is-3">Five questions, five answers</h2>
+    </div>
+
+    <div class="rq-grid">
+
+      <div class="rq">
+        <div class="rq-head"><span class="rq-id">RQ1</span><span class="rq-topic">Evidence removal</span><span class="ans no">No</span></div>
+        <h3>When the image is removed or replaced, does confidence fall?</h3>
+        <div class="big"><span class="v">0.229<span class="arr">&rarr;</span>0.427</span><span class="cap">Qwen2.5-VL ECE on VQA-RAD, intact &rarr; blank</span></div>
+        <p>Accuracy drops for every model on both datasets, but confidence does not drop by a matching amount, so
+          calibration error grows. Medical pre-training does not fix it: on PathVQA, blanking the image halves
+          MedGemma's accuracy (0.293&nbsp;&rarr;&nbsp;0.139) while its confidence <em>rises</em>
+          (0.821&nbsp;&rarr;&nbsp;0.830).</p>
+        <div class="chips"><span class="chip">MedGemma PathVQA blank: ECE 0.691</span><span class="chip">82% of high-confidence answers wrong</span></div>
+      </div>
+
+      <div class="rq">
+        <div class="rq-head"><span class="rq-id">RQ2</span><span class="rq-topic">Blank vs. wrong</span><span class="ans yes">Yes</span></div>
+        <h3>Does a model react differently to a blank image than a wrong one?</h3>
+        <div class="minis">
+          <div class="mini"><div class="v bad">48%</div><div class="l">Qwen answers unchanged under a <b>swapped</b> image (VQA-RAD)</div></div>
+          <div class="mini"><div class="v">15.7%</div><div class="l">unchanged under a <b>blank</b> image</div></div>
+          <div class="mini"><div class="v sm">0.226 vs 0.104</div><div class="l">MedGemma consistency, mismatch / blank</div></div>
+        </div>
+        <p>Every model keeps its original answer far more often under a mismatched image than under a blank one.
+          The models detect the <em>absence</em> of an image more easily than the <em>presence of a wrong one</em>,
+          which is the more dangerous case in the clinic.</p>
+      </div>
+
+      <div class="rq">
+        <div class="rq-head"><span class="rq-id">RQ3</span><span class="rq-topic">Source</span><span class="ans closed">Closed questions</span></div>
+        <h3>Where does the miscalibration come from?</h3>
+        <div class="big"><span class="v">0.05<span class="arr">&rarr;</span>0.21</span><span class="cap">Qwen closed-question ECE, VQA-RAD, intact &rarr; mismatch</span></div>
+        <p>The yes/no questions that look best calibrated on the intact image collapse into confident,
+          image-independent guessing once it is swapped: the 7B models repeat their original yes/no answer 58&ndash;65%
+          of the time. Open questions are overconfident in every condition (PathVQA open accuracy only 0.04, ECE
+          above 0.70), so their poor calibration reflects difficulty, not missing evidence.</p>
+        <div class="chips"><span class="chip">Bootstrap &Delta;ECE +0.165, 95% CI [+0.083, +0.211]</span><span class="chip">MedGemma closed 0.23 &rarr; 0.43</span></div>
+      </div>
+
+      <div class="rq">
+        <div class="rq-head"><span class="rq-id">RQ4</span><span class="rq-topic">Severity</span><span class="ans no">No</span></div>
+        <h3>Does confidence track a gradual loss of image quality?</h3>
+        <div class="big"><span class="v">0.548<span class="arr">&rarr;</span>0.435</span><span class="cap">MedGemma VQA-RAD accuracy, intact &rarr; blur radius 5</span></div>
+        <p>Under Gaussian blur (radius 1/3/5) and Gaussian noise (&sigma; = 0.05/0.1/0.2), accuracy erodes while the
+          confidence curve stays essentially flat in every panel, and for Qwen even rises. The
+          confidence&ndash;accuracy gap, and thus ECE, widens as the image degrades for every model and dataset.</p>
+        <div class="chips"><span class="chip">MedGemma ECE 0.351 &rarr; 0.458</span><span class="chip">Strongest for the medical model</span></div>
+      </div>
+
+      <div class="rq wide">
+        <div class="rq-head"><span class="rq-id">RQ5</span><span class="rq-topic">Verbalized confidence</span><span class="ans no">No</span></div>
+        <h3>Is the confidence a clinician reads, the number stated in words, any better?</h3>
+        <div class="minis">
+          <div class="mini"><div class="v bad">0.893</div><div class="l">Qwen's stated confidence on a <b>blank gray</b> image (VQA-RAD)</div></div>
+          <div class="mini"><div class="v">0.883</div><div class="l">its stated confidence on the <b>real</b> image</div></div>
+          <div class="mini"><div class="v">0.35 &rarr; 0.54</div><div class="l">Qwen verbalized ECE, intact &rarr; blank</div></div>
+        </div>
+        <p>Asked to add &ldquo;Confidence: <i>N</i>%&rdquo;, Qwen and MedGemma comply 94&ndash;100% of the time, and for both
+          the verbalized number is higher and worse calibrated than the token probability in almost every condition.
+          Asking also inflates the token probability itself (Qwen VQA-RAD intact token ECE 0.23&nbsp;&rarr;&nbsp;0.33).
+          LLaVA-1.6 gives a parseable number for only 13&ndash;26% of items. Asking a medical VLM &ldquo;how sure are you?&rdquo;
+          either makes it more overconfident or yields nothing usable.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Figures -->
+<section class="section is-tint" id="figures">
+  <div class="container">
+    <div class="has-text-centered" style="margin-bottom:1.4rem">
+      <span class="sec-kicker">Figures</span>
+      <h2 class="title is-3">Confidence does not follow the evidence</h2>
+    </div>
+
+    <div class="fig-card">
+      <a href="static/images/reliability_three.png" target="_blank" title="Open full-resolution figure">
+        <img src="static/images/reliability_three.png" alt="Reliability diagrams for Qwen2.5-VL, LLaVA-1.6, and MedGemma on VQA-RAD (top row) and PathVQA (bottom row) under intact, blank, and mismatched images" loading="lazy">
+      </a>
+      <p class="description"><b class="fl">Reliability diagrams.</b> All three models (columns) on both datasets
+        (rows: VQA-RAD top, PathVQA bottom). Points on the dashed diagonal are perfectly calibrated, and points below it
+        show overconfidence. Under blank and mismatched images the curves drop further below the diagonal and ECE rises,
+        which confirms that confidence does not track the loss of visual evidence. The effect appears for every model
+        family and is worst on the harder PathVQA task and for MedGemma.</p>
+    </div>
+
+    <div class="fig-card" style="margin-top:1.6rem">
+      <a href="static/images/severity_three.png" target="_blank" title="Open full-resolution figure">
+        <img src="static/images/severity_three.png" alt="Accuracy (dashed) and mean confidence (solid) versus corruption level for blur and noise, for three models on two datasets; confidence stays flat while accuracy falls" loading="lazy">
+      </a>
+      <p class="description"><b class="fl">Graded corruption.</b> Accuracy (dashed, squares) and mean confidence
+        (solid, circles) as corruption grows. Level 0 is the intact image; levels 1&ndash;3 are blur radius 1/3/5 (blue)
+        and noise &sigma; = 0.05/0.1/0.2 (orange). In every panel confidence stays flat while accuracy falls, so the
+        confidence&ndash;accuracy gap, and thus ECE, widens; the effect is strongest for MedGemma. A faithful model's
+        confidence curve would fall together with accuracy.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Main results table -->
+<section class="section" id="results">
+  <div class="container">
+    <div class="has-text-centered" style="margin-bottom:1.4rem">
+      <span class="sec-kicker">Table 1</span>
+      <h2 class="title is-3">Main results</h2>
+    </div>
+    <div class="res-wrap">
+      <div class="table-container">
+        <table class="table is-fullwidth is-narrow is-hoverable res">
+          <thead>
+            <tr>
+              <th>Model</th><th>Dataset</th><th>Condition</th>
+              <th class="has-text-right">Acc &uarr;</th>
+              <th class="has-text-right">Mean conf.</th>
+              <th class="has-text-right">ECE &darr;</th>
+              <th class="has-text-right">Hi-conf. err. &darr;</th>
+              <th class="has-text-right">Consist.</th>
+            </tr>
+          </thead>
+          <tbody>
+                <tr class="intact"><td class="model" rowspan="6">Qwen2.5-VL-7B<small>general · 7B</small></td><td class="ds" rowspan="3">VQA-RAD</td><td class="cond-c">Intact</td><td class="num">0.554</td><td class="num">0.783</td><td class="ece" style="--v:0.229">0.229</td><td class="num">0.308</td><td class="num">&ndash;</td></tr>
+                <tr class="blank"><td class="cond-c">Blank</td><td class="num">0.386</td><td class="num">0.813 <span class="up" title="higher than intact">&#9650;</span></td><td class="ece" style="--v:0.427">0.427</td><td class="num">0.468</td><td class="num">0.157</td></tr>
+                <tr class="mism"><td class="cond-c">Mismatch</td><td class="num">0.439</td><td class="num">0.806 <span class="up" title="higher than intact">&#9650;</span></td><td class="ece" style="--v:0.367">0.367</td><td class="num">0.463</td><td class="num">0.483</td></tr>
+                <tr class="intact"><td class="ds" rowspan="3">PathVQA</td><td class="cond-c">Intact</td><td class="num">0.338</td><td class="num">0.819</td><td class="ece" style="--v:0.481">0.481</td><td class="num">0.523</td><td class="num">&ndash;</td></tr>
+                <tr class="blank"><td class="cond-c">Blank</td><td class="num">0.246</td><td class="num">0.758</td><td class="ece" style="--v:0.513">0.513</td><td class="num">0.537</td><td class="num">0.315</td></tr>
+                <tr class="mism grp-end"><td class="cond-c">Mismatch</td><td class="num">0.250</td><td class="num">0.826 <span class="up" title="higher than intact">&#9650;</span></td><td class="ece" style="--v:0.576">0.576</td><td class="num">0.643</td><td class="num">0.347</td></tr>
+                <tr class="intact"><td class="model" rowspan="6">LLaVA-1.6-7B<small>general · 7B</small></td><td class="ds" rowspan="3">VQA-RAD</td><td class="cond-c">Intact</td><td class="num">0.439</td><td class="num">0.815</td><td class="ece" style="--v:0.375">0.375</td><td class="num">0.449</td><td class="num">&ndash;</td></tr>
+                <tr class="blank"><td class="cond-c">Blank</td><td class="num">0.328</td><td class="num">0.787</td><td class="ece" style="--v:0.459">0.459</td><td class="num">0.527</td><td class="num">0.366</td></tr>
+                <tr class="mism"><td class="cond-c">Mismatch</td><td class="num">0.353</td><td class="num">0.813</td><td class="ece" style="--v:0.461">0.461</td><td class="num">0.545</td><td class="num">0.528</td></tr>
+                <tr class="intact"><td class="ds" rowspan="3">PathVQA</td><td class="cond-c">Intact</td><td class="num">0.312</td><td class="num">0.796</td><td class="ece" style="--v:0.484">0.484</td><td class="num">0.564</td><td class="num">&ndash;</td></tr>
+                <tr class="blank"><td class="cond-c">Blank</td><td class="num">0.224</td><td class="num">0.746</td><td class="ece" style="--v:0.521">0.521</td><td class="num">0.599</td><td class="num">0.193</td></tr>
+                <tr class="mism grp-end"><td class="cond-c">Mismatch</td><td class="num">0.270</td><td class="num">0.794</td><td class="ece" style="--v:0.524">0.524</td><td class="num">0.626</td><td class="num">0.360</td></tr>
+                <tr class="intact"><td class="model med" rowspan="6">MedGemma-4B<small>medical · 4B</small></td><td class="ds" rowspan="3">VQA-RAD</td><td class="cond-c">Intact</td><td class="num">0.548</td><td class="num">0.899</td><td class="ece" style="--v:0.351">0.351</td><td class="num">0.418</td><td class="num">&ndash;</td></tr>
+                <tr class="blank"><td class="cond-c">Blank</td><td class="num">0.231</td><td class="num">0.847</td><td class="ece hot" style="--v:0.617">0.617</td><td class="num">0.677</td><td class="num">0.104</td></tr>
+                <tr class="mism"><td class="cond-c">Mismatch</td><td class="num">0.337</td><td class="num">0.886</td><td class="ece" style="--v:0.55">0.550</td><td class="num">0.653</td><td class="num">0.226</td></tr>
+                <tr class="intact"><td class="ds" rowspan="3">PathVQA</td><td class="cond-c">Intact</td><td class="num">0.293</td><td class="num">0.821</td><td class="ece" style="--v:0.527">0.527</td><td class="num">0.590</td><td class="num">&ndash;</td></tr>
+                <tr class="blank"><td class="cond-c">Blank</td><td class="num">0.139</td><td class="num">0.830 <span class="up" title="higher than intact">&#9650;</span></td><td class="ece hot" style="--v:0.691">0.691</td><td class="num hot">0.823</td><td class="num">0.078</td></tr>
+                <tr class="mism grp-end"><td class="cond-c">Mismatch</td><td class="num">0.173</td><td class="num">0.815</td><td class="ece hot" style="--v:0.643">0.643</td><td class="num hot">0.766</td><td class="num">0.093</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-legend">Bars visualize ECE (longer = worse). <span class="up">&#9650;</span> mean confidence higher than with the intact image.
+        Highlighted: ECE &ge; 0.6 or high-confidence error &ge; 0.75. Swipe sideways on small screens.</p>
+      <p class="description">Three locally run VLMs on VQA-RAD (<i>n</i>&nbsp;=&nbsp;451) and PathVQA (<i>n</i>&nbsp;=&nbsp;6,719)
+        under three image conditions. Removing or replacing the image lowers accuracy, yet confidence stays high and
+        calibration error (ECE) goes up: every model stays sure of itself exactly when it can see the least. The medically
+        specialized model (MedGemma) is the most overconfident of the three. <i>Consist.</i> is the fraction of answers
+        identical to the intact-image answer.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Discussion -->
+<section class="section is-tint" id="discussion">
+  <div class="container">
+    <div class="has-text-centered" style="margin-bottom:1.4rem">
+      <span class="sec-kicker">Discussion</span>
+      <h2 class="title is-3">What this means</h2>
+    </div>
+    <div class="disc">
+      <div class="box">
+        <h4><span class="icon"><i class="fas fa-hospital"></i></span>Clinical implications</h4>
+        <p>Accuracy-only leaderboards hide this failure. The mismatched case is the most dangerous: a wrong scan
+          attached to the right patient, from a mislabeled study or a PACS error, yields a smooth, confident, wrong
+          answer a clinician has little reason to doubt. That the medical model is the most overconfident warns against
+          assuming a specialized model is safer.</p>
+      </div>
+      <div class="box">
+        <h4><span class="icon"><i class="fas fa-shield-alt"></i></span>Cheap safeguards</h4>
+        <ul>
+          <li><b>Report calibration</b>, not just accuracy: ECE and high-confidence error under blank and mismatched images.</li>
+          <li><b>Don't trust verbalized confidence</b>; it is worse than the already poor token probability.</li>
+          <li><b>Use consistency checks</b>: answers rarely change under a mismatched image (up to 0.63 for closed questions), so testing whether the answer moves flags responses that ignore the image.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4><span class="icon"><i class="fas fa-exclamation-triangle"></i></span>Limitations</h4>
+        <ul>
+          <li>Three VLMs (two 7B general, one 4B medical); larger or other medical models such as LLaVA-Med may differ.</li>
+          <li>Two datasets and greedy decoding; sampling-based confidence and other modalities are untested.</li>
+          <li>Confidence is a mean over all generated tokens; an answer-span average could refine it.</li>
+          <li>10-bin ECE on small splits (VQA-RAD: 451 items) can be noisy, so we bootstrap the key result and stress effects that hold everywhere.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Team -->
+<section class="section" id="team">
+  <div class="container">
+    <div class="has-text-centered" style="margin-bottom:1.6rem">
+      <span class="sec-kicker">People</span>
+      <h2 class="title is-3">Team</h2>
+    </div>
+    <div class="team">
+      <div class="member">
+        <div class="ph"><img src="static/images/team/Koushik.png" alt="Koushik Howlader"></div>
+        <div class="nm"><a href="https://www.cs.iastate.edu/people/koushik-howlader" target="_blank" rel="noopener">Koushik Howlader</a></div>
+        <div class="af">Iowa State University</div>
+        <div class="role">Corresponding author</div>
+      </div>
+      <div class="member">
+        <div class="ph"><img src="static/images/team/Zainab.png" alt="Zainab Ghafoor"></div>
+        <div class="nm"><a href="https://www.linkedin.com/in/zainab-ghafoor-8aa984333/" target="_blank" rel="noopener">Zainab Ghafoor</a></div>
+        <div class="af">Sonoma State University</div>
+      </div>
+      <div class="member">
+        <div class="ph"><img src="static/images/team/Ushashi.png" alt="Ushashi Bhattacharjee"></div>
+        <div class="nm"><a href="https://www.linkedin.com/in/ushashi-bhattacharjee/" target="_blank" rel="noopener">Ushashi Bhattacharjee</a></div>
+        <div class="af">Iowa State University</div>
+      </div>
+      <div class="member">
+        <div class="ph"><img src="static/images/team/Sayantan.png" alt="Sayantan Chakraborty"></div>
+        <div class="nm"><a href="https://sayantan1416.github.io/" target="_blank" rel="noopener">Sayantan Chakraborty</a></div>
+        <div class="af">University of Dhaka</div>
+      </div>
+      <div class="member">
+        <div class="ph"><div class="initials" role="img" aria-label="Tanusree Bhattacharjee">TB</div></div>
+        <div class="nm">Tanusree Bhattacharjee</div>
+        <div class="af">Iowa State University</div>
+      </div>
+      <div class="member">
+        <div class="ph"><img src="static/images/team/Tirtho.png" alt="Tirtho Roy"></div>
+        <div class="nm"><a href="https://www.linkedin.com/in/tirtho-roy-apon/" target="_blank" rel="noopener">Tirtho Roy</a></div>
+        <div class="af">Iowa State University</div>
+        <div class="role">Corresponding author</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BibTeX -->
+<section class="section is-tint" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <div class="bib-wrap">
+      <button class="copy-btn" type="button" id="copyBib"><i class="far fa-copy"></i> Copy</button>
+      <pre><code id="bibtex">@inproceedings{howlader2026clear,
+  title     = {Calibrating Medical Vision-Language Reasoning Under Image Corruption},
+  author    = {Howlader, Koushik and Ghafoor, Zainab and Bhattacharjee, Ushashi and
+               Chakraborty, Sayantan and Bhattacharjee, Tanusree and Roy, Tirtho},
+  booktitle = {NeurIPS 2026 Workshop on Medical Reasoning with Vision Language
+               Foundation Models (Med-Reasoner)},
+  year      = {2026},
+  url       = {https://medreason-clear.github.io/}
+}</code></pre>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content has-text-centered">
+          <p>
+            This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank" rel="noopener">Academic Project Page Template</a>,
+            which was adopted from the <a href="https://nerfies.github.io" target="_blank" rel="noopener">Nerfies</a> project page.
+            You are free to borrow the source code of this website; we just ask that you link back to this page in the footer.<br>
+            This website is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var btn = document.getElementById('copyBib');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var txt = document.getElementById('bibtex').innerText;
+      var done = function () { btn.innerHTML = 'Copied!'; setTimeout(function () { btn.innerHTML = '<i class="far fa-copy"></i> Copy'; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(done, function () {});
+      } else {
+        var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) {} document.body.removeChild(ta);
+      }
+    });
+    document.querySelectorAll('a[aria-disabled="true"]').forEach(function (a) {
+      a.addEventListener('click', function (e) { e.preventDefault(); });
+    });
+  })();
+</script>
+</body>
+</html>
